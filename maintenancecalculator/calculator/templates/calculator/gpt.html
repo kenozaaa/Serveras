@@ -1,0 +1,214 @@
+{% extends "calculator/base.html" %}
+{% load static %}
+{% block content %}
+<div class="gpt-page-container">
+    <!-- Left Side: Custom Prompts -->
+    <div class="gpt-custom-prompts">
+        <h3>Custom Prompts</h3>
+        
+        <!-- TIPA Dropdown -->
+        <div class="dropdown">
+            <button class="dropdown-btn" onclick="toggleDropdown('tipa-dropdown')">TIPA</button>
+            <div id="tipa-dropdown" class="dropdown-content">
+                <!-- Prompts will be loaded here dynamically by JavaScript -->
+            </div>
+        </div>
+
+        <!-- TIPX Dropdown -->
+        <div class="dropdown">
+            <button class="dropdown-btn" onclick="toggleDropdown('tipx-dropdown')">TIPX</button>
+            <div id="tipx-dropdown" class="dropdown-content">
+                <!-- Prompts will be loaded here dynamically by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Tool: GPT Tool -->
+    <div class="gpt-container">
+        <h2 class="gpt-heading">GPT Categorization</h2>
+    
+        <form method="post" enctype="multipart/form-data" class="gpt-form">
+            {% csrf_token %}
+            <div class="form-group model-prefix-container">
+                {{ form.model.label_tag }}
+                {{ form.model }}
+    
+                <!-- Prefix Selector -->
+                <label for="prefix-selector" class="prefix-label">Select Project:</label>
+                <select id="prefix-selector" name="prefix" class="btn model-btn">
+                    <option value="TIPA" selected>TIPA</option>
+                    <option value="TIPX">TIPX</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                {{ form.file.label_tag }}
+                <label class="custom-file-upload">
+                    {{ form.file }}
+                    Browse
+                </label>
+            </div>
+
+            <!-- New: Add column selection -->
+            <div class="form-group gpt-checkbox-group">
+                <label>
+                    <input type="checkbox" name="columns" value="First Claim" checked> First Claim
+                </label>
+                <label>
+                    <input type="checkbox" name="columns" value="Title"> Title
+                </label>
+                <label>
+                    <input type="checkbox" name="columns" value="Abstract"> Abstract
+                </label>
+            </div>
+    
+            <div class="form-group">
+                {{ form.prompt.label_tag }}
+                {{ form.prompt }}
+            </div>
+            
+            <button type="submit" class="btn">Submit</button>
+        </form>
+    </div>
+
+    <!-- Right Side: Loading Section -->
+    <div class="gpt-loading">
+        <h3>How to Use GPT Categorization Tool</h3>
+        <p>This tool helps you categorize patents by providing a custom GPT model prompt. Follow the steps below:</p>
+        
+        <h4>How to Prepare Your Excel File:</h4>
+        <p>Your Excel file must be in <strong>.xlsx</strong> format and should include the following columns:</p>
+        <ul>
+            <li><strong>Patent/Publication Number</strong> (e.g., US988544)</li>
+            <li><strong>First Claim</strong> (Optional)</li>
+            <li><strong>Title</strong> (Optional)</li>
+            <li><strong>Abstract</strong> (Optional)</li>
+        </ul>
+
+        <h4>Selecting Columns for GPT Categorization:</h4>
+        <p>You can select which columns (First Claim, Title, Abstract) you want to include in the categorization process using the checkboxes.</p>
+
+        <h4>Selecting a Model:</h4>
+        <p>Use the dropdown menu to select between different models such as TIPA and TIPX.</p>
+        
+        <h4>Custom Prompts:</h4>
+        <p>You can use pre-configured custom prompts (TIPA, TIPX) or create your own prompt for GPT categorization.</p>
+    </div>
+</div>
+
+<div class="gpt-spacer"></div>
+
+
+<!-- Results Repository Section -->
+<div class="calc-results-container">
+    <h2 class="calc-results-heading">Stored Results</h2>
+
+    <form id="download-form" method="post" action="{% url 'bulk_download' %}" class="calc-results-form">
+        {% csrf_token %}
+        <div class="calc-repository-sections">
+            <div class="calc-repository-section">
+                <div class="calc-scrollable">
+                    <ul class="calc-file-list">
+                        {% for file in result_files_gpt %}
+                            <li class="calc-file-item" onclick="toggleCheckbox(this)">
+                                <label>
+                                    <input type="checkbox" name="selected_files" value="{{ file.filename }}" class="calc-file-checkbox">
+                                    <span class="calc-file-name">{{ file.filename }}</span>
+                                    <span class="calc-file-date">By: {{ file.created_by.username }} on {{ file.created_at|date:"Y-m-d" }}</span>
+                                </label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn">Download Selected Files</button>
+    </form>
+</div>
+
+<!-- Error Modal -->
+<div id="errorModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h2>Error</h2>
+        <p>{{ error_message }}</p>
+    </div>
+</div>
+
+<!-- JavaScript for Dynamic Prompts Loading and Modals -->
+<script>
+    // Function to insert the prompt text into the textarea
+    function insertPrompt(promptText) {
+        var promptTextarea = document.querySelector('textarea[name="prompt"]');
+        if (promptTextarea) {
+            promptTextarea.value = promptText;
+        }
+    }
+
+    // Function to fetch prompts from the JSON file and populate the dropdowns
+    async function loadPrompts() {
+        try {
+            const response = await fetch("{% static 'calculator/prompts.json' %}");
+            const prompts = await response.json();
+
+            // Populate the TIPA dropdown
+            const tipaDropdown = document.getElementById('tipa-dropdown');
+            prompts.TIPA.forEach(prompt => {
+                const aTag = document.createElement('a');
+                aTag.href = '#';
+                aTag.classList.add('prompt-link');
+                aTag.textContent = prompt.label;
+                aTag.onclick = () => insertPrompt(prompt.text);
+                tipaDropdown.appendChild(aTag);
+            });
+
+            // Populate the TIPX dropdown
+            const tipxDropdown = document.getElementById('tipx-dropdown');
+            prompts.TIPX.forEach(prompt => {
+                const aTag = document.createElement('a');
+                aTag.href = '#';
+                aTag.classList.add('prompt-link');
+                aTag.textContent = prompt.label;
+                aTag.onclick = () => insertPrompt(prompt.text);
+                tipxDropdown.appendChild(aTag);
+            });
+
+        } catch (error) {
+            console.error('Error fetching the prompts:', error);
+        }
+    }
+
+    // Call the function to load the prompts when the page is ready
+    document.addEventListener('DOMContentLoaded', loadPrompts);
+
+    // Function to toggle dropdown visibility
+    function toggleDropdown(dropdownId) {
+        var dropdowns = document.getElementsByClassName("dropdown-content");
+        for (var i = 0; i < dropdowns.length; i++) {
+            var dropdown = dropdowns[i];
+            if (dropdown.id !== dropdownId) {
+                dropdown.classList.remove('show'); // Close all other dropdowns
+            }
+        }
+
+        // Toggle the clicked dropdown
+        var currentDropdown = document.getElementById(dropdownId);
+        currentDropdown.classList.toggle('show');
+    }
+
+    // Function to open the modal
+    function openModal() {
+        document.getElementById('errorModal').style.display = 'block';
+    }
+
+    // Function to close the modal
+    function closeModal() {
+        document.getElementById('errorModal').style.display = 'none';
+    }
+
+    // Check if there's an error message, and open the modal if so
+    {% if error_message %}
+    openModal();
+    {% endif %}
+</script>
+{% endblock %}

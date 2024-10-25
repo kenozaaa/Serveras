@@ -1,0 +1,14 @@
+{% extends 'calculator/base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <div class="container-home">
+        <div class="flex-item">
+            <a href="{% url 'calculate_fees' %}">Maintenance Calculator</a>
+        </div>
+        <div class="flex-item">
+            <a href="{% url 'gpt-categorize' %}">GPT Categorize</a>
+        </div>
+    </div>
+{% endblock %}
